@@ -22,7 +22,10 @@
 (require 'web)
 
 ;;;###autoload
-(defvar *jabber-qim-api-server*)
+(defvar *jabber-qim-http-url*)
+
+;;;###autoload
+(defvar *jabber-qim-message-history-url*)
 
 ;;;###autoload
 (defvar *jabber-qim-file-server*)
@@ -30,6 +33,18 @@
 ;;;###autoload
 (defvar *jabber-qim-file-service-version*
   "v2")
+
+(defconst *jabber-qim-webapi-command-set-muc-vcard*
+  "/muc/set_muc_vcard.qunar")
+
+(defconst *jabber-qim-webapi-command-get-muc-vcard*
+  "/muc/get_muc_vcard.qunar")
+
+(defconst *jabber-qim-webapi-command-update-users*
+  "/update/getUpdateUsers.qunar")
+
+(defconst *jabber-qim-webapi-command-get-muc-messages*
+  "/qtapi/getmucmsgs.qunar")
 
 (add-to-list 'web-json-expected-mimetypes-list
              "text/json")
@@ -91,23 +106,34 @@ affecting the resulting lisp structure."
       :logging logging)))
 
 
-(defun jabber-qim-api-request-post (callback command data mime-type &optional auth-info)
-  (web-json-post 
-      callback
-      :url (format "%s/%s?u=%s&k=%s" *jabber-qim-api-server*
-                   command
-                   (or (cdr (assoc :u auth-info)) "")
-                   (or (cdr (assoc :k auth-info)) ""))
-      :data data
-      :mime-type mime-type
-      :json-object-type 'alist
-      :json-array-type 'list))
+(defun jabber-qim-api-request-post (callback command data mime-type &optional auth-info alt-api-url)
+  (let ((u (or (cdr (assoc :u auth-info)) ""))
+        (k (or (cdr (assoc :k auth-info)) ""))
+        (ts (or (cdr (assoc :t auth-info)) ""))
+        (d (or (cdr (assoc :d auth-info)) "")))
+    (web-json-post
+     callback
+     :url (format "%s/%s?u=%s&k=%s" (or alt-api-url
+                                        *jabber-qim-http-url*)
+                  command
+                  u
+                  k)
+     :data data
+     :headers `(("Cookie" . ,(format "q_ckey=%s"
+                                    (base64-encode-string
+                                     (format "u=%s&t=%s&sk=%s&d=%s&k=%s"
+                                             u ts k d (secure-hash 'md5 (format "%s%s" k ts)))
+                                     t))))
+     :mime-type mime-type
+     :json-object-type 'alist
+     :json-array-type 'list)))
 
 
-(defun jabber-qim-api-request-get (callback command &optional auth-info)
+(defun jabber-qim-api-request-get (callback command &optional auth-info alt-api-url)
   (web-json-get 
       callback
-      :url (format "%s/%s?u=%s&k=%s" *jabber-qim-api-server*
+      :url (format "%s/%s?u=%s&k=%s" (or alt-api-url
+                                         *jabber-qim-http-url*)
                    command
                    (or (cdr (assoc :u auth-info)) "")
                    (or (cdr (assoc :k auth-info)) ""))

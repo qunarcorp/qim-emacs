@@ -263,7 +263,7 @@ This function is idempotent."
   "Remember participating in GROUP under NICKNAME."
   (let ((whichgroup (assoc group *jabber-active-groupchats*)))
     (if whichgroup
-	(setcdr whichgroup nickname)
+        (setcdr whichgroup nickname)
       (add-to-list '*jabber-active-groupchats* (cons group nickname)))))
 
 (defun jabber-muc-remove-groupchat (group)
@@ -440,7 +440,8 @@ JID; only provide completion as a guide."
     (completing-read prompt nicknames nil t nil 'jabber-muc-nickname-history nil t)))
 
 (add-to-list 'jabber-jid-muc-menu
-             (cons "Display history messages" 'jabber-muc-display-more-backlog))
+             (cons "Display history messages" 'jabber-muc-recent-history))
+
 
 (defun jabber-muc-display-more-backlog (how-many)
   "Display more context. HOW-MANY is number of messages. Specify 0 to display all messages."
@@ -1180,6 +1181,9 @@ Return nil if X-MUC is nil."
            (body-text (jabber-qim-message-body-text xml-data))
            (msg-type (jabber-qim-message-type xml-data))
            (printers (append jabber-muc-printers jabber-chat-printers)))
+      (when (not (assoc group
+                        *jabber-active-groupchats*))
+        (jabber-qim-muc-join jc group))
       (if (or (assoc group *jabber-active-groupchats*)
               (jabber-muc-invite-message-p xml-data))
           (with-current-buffer (jabber-muc-create-buffer jc group)
@@ -1356,7 +1360,9 @@ Return nil if X-MUC is nil."
               (setcdr whichgroup nickname)
             (progn
               (unless (gethash group *jabber-qim-muc-vcard-cache*)
-                (jabber-qim-muc-join jc group))
+                (jabber-qim-muc-join jc group)
+                (jabber-muc-recent-history jc group 20
+                                           (truncate (* 1000 (float-time)))))
               (add-to-list '*jabber-active-groupchats* (cons group nickname)))))
         ;; The server may have changed our nick.  Record the new one.
         (puthash symbol nickname jabber-pending-groupchats))
